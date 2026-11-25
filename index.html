@@ -23,7 +23,7 @@
     --orb-2: rgba(191, 90, 242, 0.36);
     --orb-3: rgba(191, 90, 242, 0.34);
     --orb-4: rgba(48, 209, 88, 0.34);
-    --spring: cubic-bezier(0.22, 1, 0.36, 1);
+    --spring: cubic-bezier(0.16, 1, 0.3, 1);
   }
   body.light {
     --bg: #eef0f6;
@@ -45,15 +45,22 @@
     -webkit-tap-highlight-color: transparent;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", sans-serif;
   }
-  html, body {
-    position: fixed;
-    inset: 0;
-    width: 100%;
+  html {
     height: 100%;
+    width: 100%;
     background: var(--bg);
-    color: var(--text);
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  body {
     margin: 0;
     padding: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    background: var(--bg);
+    color: var(--text);
     overflow: hidden;
     overscroll-behavior: none;
     transition: background 0.35s var(--spring), color 0.3s ease;
@@ -73,7 +80,10 @@
 
   .ambient-bg {
     position: fixed;
-    inset: 0;
+    top: -60px;
+    left: 0;
+    right: 0;
+    bottom: -90px;
     pointer-events: none;
     z-index: 0;
     overflow: hidden;
@@ -212,7 +222,7 @@
   .err-msg { color: #ff453a; font-size: 14px; font-weight: 500; text-align: center; min-height: 18px; }
 
   #chat-shell {
-    position: fixed; top: 0; left: 0; right: 0; height: 100%;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     display: flex; flex-direction: column; overflow: hidden; z-index: 10;
     will-change: height, transform;
   }
@@ -233,13 +243,6 @@
   }
   .avatar img { width: 100%; height: 100%; object-fit: cover; }
   .contact-name { font-size: 12px; font-weight: 600; color: var(--text); letter-spacing: -0.1px; }
-  .live-dot {
-    position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
-    width: 9px; height: 9px; border-radius: 50%; background: #ff9f0a;
-    box-shadow: 0 0 8px rgba(255, 159, 10, 0.6);
-    transition: background 0.3s ease, box-shadow 0.3s ease;
-  }
-  .live-dot.online { background: #30d158; box-shadow: 0 0 8px rgba(48, 209, 88, 0.75); }
   .menu-btn {
     position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
     background: var(--glass-elevated); border: 0.5px solid var(--glass-border);
@@ -290,13 +293,13 @@
     flex-direction: column; gap: 6px; position: relative; z-index: 10;
   }
   @keyframes bubbleIn {
-    0% { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.94); }
+    0% { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.96); }
     100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
   }
   .row { display: flex; flex-direction: column; max-width: 78%; margin-bottom: 2px; will-change: transform, opacity; }
   .row.theirs { align-self: flex-start; transform-origin: bottom left; }
   .row.mine { align-self: flex-end; transform-origin: bottom right; }
-  .row.anim-in { animation: bubbleIn 0.26s var(--spring) both; }
+  .row.anim-in { animation: bubbleIn 0.32s var(--spring) both; }
   .sender-tag { font-size: 11px; font-weight: 500; color: var(--sub-text); margin: 0 0 3px 12px; }
   .bubble { padding: 10px 15px; border-radius: 21px; font-size: 16px; line-height: 1.35; word-wrap: break-word; }
   .theirs .bubble {
@@ -347,10 +350,11 @@
   #msg-form {
     flex-shrink: 0; display: flex; align-items: center; gap: 9px;
     padding-top: 6px; padding-left: 12px; padding-right: 12px;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    padding-bottom: max(12px, calc(env(safe-area-inset-bottom) - 14px));
     background: transparent; position: relative; z-index: 20;
+    transition: padding-bottom 0.2s var(--spring);
   }
-  body.kb-open #msg-form { padding-bottom: 10px; }
+  body.kb-open #msg-form { padding-bottom: 8px; }
   .attach-btn {
     width: 38px; height: 38px; border-radius: 50%; color: var(--text); font-size: 22px;
     font-weight: 400; line-height: 1; cursor: pointer; display: flex; align-items: center;
@@ -431,7 +435,6 @@
 
   <div id="chat-shell">
     <div class="nav-bar liquid-glass">
-      <div class="live-dot" id="live-dot" title="Connection status"></div>
       <div class="contact-header">
         <div class="avatar" id="header-avatar"></div>
         <div class="contact-name" id="header-name"></div>
@@ -453,8 +456,8 @@
     <div id="msg-form">
       <button type="button" class="attach-btn liquid-glass" onclick="lockEditor(); pickSingleFile('image/*', handleMediaSelect);" aria-label="Send Photo">+</button>
       <div id="input-pill" class="input-pill liquid-glass">
-        <div id="text-editor" role="textbox" aria-multiline="false"></div>
-        <button id="send-btn" class="send-btn" type="button" onclick="sendMsg(event)">↑</button>
+        <div id="text-editor" role="textbox" aria-multiline="false" enterkeyhint="send"></div>
+        <button id="send-btn" class="send-btn" type="button" aria-label="Send">↑</button>
       </div>
     </div>
   </div>
@@ -583,13 +586,10 @@
 
   function startLiveStream() {
     if (sse) { try { sse.close(); } catch (e) {} }
-    const dot = document.getElementById('live-dot');
     sse = new EventSource(`${NTFY_BASE}/sse?since=all`);
-    sse.onopen = () => { if (dot) dot.classList.add('online'); };
     sse.onmessage = (e) => {
       try { applyNtfyEvent(JSON.parse(e.data)); } catch (err) {}
     };
-    sse.onerror = () => { if (dot) dot.classList.remove('online'); };
   }
 
   async function publishEvent(obj) {
@@ -606,17 +606,25 @@
     if (!shell) return;
     if (window.visualViewport) {
       const vv = window.visualViewport;
-      const kbOpen = (window.innerHeight - vv.height) > 100;
+      const kbOpen = (window.innerHeight - vv.height) > 90;
       document.body.classList.toggle('kb-open', kbOpen);
-      shell.style.height = kbOpen ? `${Math.round(vv.height)}px` : '100%';
-      shell.style.transform = kbOpen && vv.offsetTop ? `translate3d(0, ${Math.round(vv.offsetTop)}px, 0)` : 'none';
       if (kbOpen) {
-        const chat = document.getElementById('chat');
-        chat.scrollTop = chat.scrollHeight;
+        shell.style.top = `${Math.round(vv.offsetTop)}px`;
+        shell.style.height = `${Math.round(vv.height)}px`;
+        shell.style.bottom = 'auto';
+        requestAnimationFrame(() => {
+          const chat = document.getElementById('chat');
+          if (chat) chat.scrollTop = chat.scrollHeight;
+        });
+      } else {
+        shell.style.top = '0px';
+        shell.style.bottom = '0px';
+        shell.style.height = 'auto';
       }
     } else {
-      shell.style.height = '100%';
-      shell.style.transform = 'none';
+      shell.style.top = '0px';
+      shell.style.bottom = '0px';
+      shell.style.height = 'auto';
     }
     window.scrollTo(0, 0);
   }
@@ -659,6 +667,8 @@
     const ed = document.getElementById('text-editor');
     ed.setAttribute('contenteditable', 'true');
     ed.focus();
+    setTimeout(syncViewport, 120);
+    setTimeout(syncViewport, 300);
 
     const sel = window.getSelection();
     if (sel && ed.childNodes.length > 0) {
@@ -708,10 +718,28 @@
     }
   }, true);
 
+  const sendBtnEl = document.getElementById('send-btn');
+  let sendBtnHandled = false;
+  function handleSendPress(e) {
+    if (e.type === 'touchstart') {
+      sendBtnHandled = true;
+      e.preventDefault();
+      e.stopPropagation();
+      sendMsg(e);
+      setTimeout(() => { sendBtnHandled = false; }, 350);
+    } else if (e.type === 'mousedown' && !sendBtnHandled) {
+      e.preventDefault();
+      e.stopPropagation();
+      sendMsg(e);
+    }
+  }
+  sendBtnEl.addEventListener('touchstart', handleSendPress, { passive: false });
+  sendBtnEl.addEventListener('mousedown', handleSendPress);
+
   function handleOutsideTouch(e) {
     const ed = document.getElementById('text-editor');
     if (!ed || !ed.hasAttribute('contenteditable')) return;
-    if (e.target && e.target.closest('#input-pill')) return;
+    if (e.target && e.target.closest('#msg-form')) return;
     lockEditor();
   }
   document.addEventListener('touchstart', handleOutsideTouch, { capture: true, passive: true });
